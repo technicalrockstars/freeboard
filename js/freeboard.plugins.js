@@ -8,6 +8,108 @@
 // └────────────────────────────────────────────────────────────────────┘ \\
 
 (function () {
+
+	function init_milkcocoa(cb) {
+    	var app = Integration.get_app_id();
+        var milkcocoa = new MilkCocoa(app.app_id + ".mlkcca.com");
+
+        milkcocoa.user(function(err, user) {
+            if(!user) {
+                get_admin_token(function(data) {
+                    milkcocoa.authAsAdmin(data.token, function() {
+                    	cb(null, milkcocoa);
+                    });
+                })
+            }else{
+            	cb(null, milkcocoa);
+            }
+        });
+	}
+
+    function get_admin_token(cb) {
+        $.ajax({
+              type: 'GET',
+              url: "https://v2-stage-top.mlkcca.com/api/getusertoken",
+              dataType: "json",
+              data: {},
+              contentType : "application/x-www-form-urlencoded",
+              xhrFields: {
+                   withCredentials: true
+              },
+              crossDomain: true,
+              beforeSend: function(xhr) {
+
+              },
+              success: function(response){
+                    cb(response);
+              },
+              error: function (xhr) {
+                    cb(xhr.responseJSON);
+              }
+        });        
+    }
+
+	var milkcocoa = null;
+
+	init_milkcocoa(function(err, _milkcocoa) {
+		milkcocoa = _milkcocoa;
+	});
+
+	var milkcocoaDatasource = function (settings, updateCallback) {
+		var self = this;
+
+		var ds = milkcocoa.dataStore(settings.datastore);
+
+		ds.on(settings.api, onData);
+
+		function onData(e) {
+			console.log(e);
+			updateCallback(e);
+		}
+
+		this.updateNow = function () {
+			//updateCallback(data);
+		}
+
+		this.onDispose = function () {
+		}
+
+		this.onSettingsChanged = function (newSettings) {
+		}
+	};
+
+	freeboard.loadDatasourcePlugin({
+		type_name: "Milkcocoa",
+		settings: [
+			{
+				name: "datastore",
+				display_name: "DataStore",
+				type: "text",
+				description: 'Milkcocoa DataStore Name. milkcocoa.dataStore("datastore name");',
+				default_value: 'message'
+			},
+			{
+				name: "api",
+				display_name: "API",
+				type: "option",
+				options: [
+					{
+						name: "send",
+						value: "send"
+					},
+					{
+						name: "push",
+						value: "push"
+					}
+				],
+				default_value: 'send'
+			}
+		],
+		newInstance: function (settings, newInstanceCallback, updateCallback) {
+			newInstanceCallback(new milkcocoaDatasource(settings, updateCallback));
+		}
+	});
+
 	var jsonDatasource = function (settings, updateCallback) {
 		var self = this;
 		var updateTimer = null;
@@ -946,7 +1048,7 @@ freeboard.loadDatasourcePlugin({
         type_name: "text_widget",
         display_name: "Text",
         "external_scripts" : [
-            "plugins/thirdparty/jquery.sparkline.min.js"
+            "lib/jquery.sparkline.min.js"
         ],
         settings: [
             {
@@ -1068,8 +1170,8 @@ freeboard.loadDatasourcePlugin({
         type_name: "gauge",
         display_name: "Gauge",
         "external_scripts" : [
-            "plugins/thirdparty/raphael.2.1.0.min.js",
-            "plugins/thirdparty/justgage.1.0.1.js"
+            "lib/raphael.2.1.0.min.js",
+            "lib/justgage.1.0.1.js"
         ],
         settings: [
             {
@@ -1159,7 +1261,7 @@ freeboard.loadDatasourcePlugin({
         type_name: "sparkline",
         display_name: "Sparkline",
         "external_scripts" : [
-            "plugins/thirdparty/jquery.sparkline.min.js"
+            "lib/jquery.sparkline.min.js"
         ],
         settings: [
             {
@@ -1270,7 +1372,7 @@ freeboard.loadDatasourcePlugin({
         type_name: "pointer",
         display_name: "Pointer",
         "external_scripts" : [
-            "plugins/thirdparty/raphael.2.1.0.min.js"
+            "lib/raphael.2.1.0.min.js"
         ],
         settings: [
             {
@@ -1401,15 +1503,17 @@ freeboard.loadDatasourcePlugin({
         var indicatorElement = $('<div class="indicator-light"></div>');
         var currentSettings = settings;
         var isOn = false;
+        var onText;
+        var offText;
 
         function updateState() {
             indicatorElement.toggleClass("on", isOn);
 
             if (isOn) {
-                stateElement.text((_.isUndefined(currentSettings.on_text) ? "" : currentSettings.on_text));
+                stateElement.text((_.isUndefined(onText) ? (_.isUndefined(currentSettings.on_text) ? "" : currentSettings.on_text) : onText));
             }
             else {
-                stateElement.text((_.isUndefined(currentSettings.off_text) ? "" : currentSettings.off_text));
+                stateElement.text((_.isUndefined(offText) ? (_.isUndefined(currentSettings.off_text) ? "" : currentSettings.off_text) : offText));
             }
         }
 
@@ -1426,6 +1530,12 @@ freeboard.loadDatasourcePlugin({
         this.onCalculatedValueChanged = function (settingName, newValue) {
             if (settingName == "value") {
                 isOn = Boolean(newValue);
+            }
+            if (settingName == "on_text") {
+                onText = newValue;
+            }
+            if (settingName == "off_text") {
+                offText = newValue;
             }
 
             updateState();
@@ -1445,26 +1555,26 @@ freeboard.loadDatasourcePlugin({
         type_name: "indicator",
         display_name: "Indicator Light",
         settings: [
-            {
-                name: "title",
-                display_name: "Title",
-                type: "text"
-            },
-            {
-                name: "value",
-                display_name: "Value",
-                type: "calculated"
-            },
-            {
-                name: "on_text",
-                display_name: "On Text",
-                type: "calculated"
-            },
-            {
-                name: "off_text",
-                display_name: "Off Text",
-                type: "calculated"
-            }
+	        {
+	            name: "title",
+	            display_name: "Title",
+	            type: "text"
+	        },
+	        {
+	            name: "value",
+	            display_name: "Value",
+	            type: "calculated"
+	        },
+	        {
+	            name: "on_text",
+	            display_name: "On Text",
+	            type: "calculated"
+	        },
+	        {
+	            name: "off_text",
+	            display_name: "Off Text",
+	            type: "calculated"
+	        }
         ],
         newInstance: function (settings, newInstanceCallback) {
             newInstanceCallback(new indicatorWidget(settings));
