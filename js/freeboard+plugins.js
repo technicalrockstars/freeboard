@@ -562,9 +562,23 @@ function FreeboardModel(datasourcePlugins, widgetPlugins, freeboardUI)
 		a.click();
 	}
 
+	this.saveLocal = function()
+	{
+		var str = JSON.stringify(self.serialize());
+		localStorage.setItem('freeboard-db', str);
+	}
+
+	this.loadLocal = function()
+	{
+		var str = localStorage.getItem('freeboard-db');
+		if(str)
+			self.loadDashboard(JSON.parse(str));
+	}
+
 	this.addDatasource = function(datasource)
 	{
 		self.datasources.push(datasource);
+		self.saveLocal();
 	}
 
 	this.deleteDatasource = function(datasource)
@@ -572,12 +586,14 @@ function FreeboardModel(datasourcePlugins, widgetPlugins, freeboardUI)
 		delete self.datasourceData[datasource.name()];
 		datasource.dispose();
 		self.datasources.remove(datasource);
+		self.saveLocal();
 	}
 
 	this.createPane = function()
 	{
 		var newPane = new PaneModel(self, widgetPlugins);
 		self.addPane(newPane);
+		self.saveLocal();
 	}
 
 	this.addGridColumnLeft = function()
@@ -2273,6 +2289,7 @@ function WidgetModel(theFreeboardModel, widgetPlugins) {
 					console.log(e.toString());
 				}
 			}
+			theFreeboardModel.saveLocal();
 		}
 	}
 
@@ -2880,6 +2897,10 @@ var freeboard = (function()
 		{
 			theFreeboardModel.loadDashboard(configuration, callback);
 		},
+		loadLocal       : function(configuration, callback)
+		{
+			theFreeboardModel.loadLocal();
+		},
 		serialize           : function()
 		{
 			return theFreeboardModel.serialize();
@@ -3050,9 +3071,13 @@ $.extend(freeboard, jQuery.eventEmitter);
 	}
 
     function get_admin_token(cb) {
+    	var top_url = "https://v2-stage-top.mlkcca.com/api/getusertoken"
+    	if(location.host == 'mlkcca.com') {
+    		top_url = "https://v2-production-top.mlkcca.com/api/getusertoken";
+    	}
         $.ajax({
               type: 'GET',
-              url: "https://v2-stage-top.mlkcca.com/api/getusertoken",
+              url: top_url,
               dataType: "json",
               data: {},
               contentType : "application/x-www-form-urlencoded",
@@ -3076,6 +3101,7 @@ $.extend(freeboard, jQuery.eventEmitter);
 
 	init_milkcocoa(function(err, _milkcocoa) {
 		milkcocoa = _milkcocoa;
+		if(window.onMilkcocoaInitialized) window.onMilkcocoaInitialized();
 	});
 
 	var milkcocoaDatasource = function (settings, updateCallback) {
@@ -3085,8 +3111,16 @@ $.extend(freeboard, jQuery.eventEmitter);
 
 		ds.on(settings.api, onData);
 
+		if(settings.api == 'push') {
+			ds.stream().size(1).next(function(err, data) {
+				if(err) {
+					throw err;
+				}
+				data.forEach(onData);
+			});
+		}
+
 		function onData(e) {
-			console.log(e);
 			updateCallback(e);
 		}
 
@@ -3095,9 +3129,11 @@ $.extend(freeboard, jQuery.eventEmitter);
 		}
 
 		this.onDispose = function () {
+
 		}
 
 		this.onSettingsChanged = function (newSettings) {
+			
 		}
 	};
 

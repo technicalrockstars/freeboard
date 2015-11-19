@@ -27,9 +27,13 @@
 	}
 
     function get_admin_token(cb) {
+    	var top_url = "https://v2-stage-top.mlkcca.com/api/getusertoken"
+    	if(location.host == 'mlkcca.com') {
+    		top_url = "https://v2-production-top.mlkcca.com/api/getusertoken";
+    	}
         $.ajax({
               type: 'GET',
-              url: "https://v2-stage-top.mlkcca.com/api/getusertoken",
+              url: top_url,
               dataType: "json",
               data: {},
               contentType : "application/x-www-form-urlencoded",
@@ -53,6 +57,7 @@
 
 	init_milkcocoa(function(err, _milkcocoa) {
 		milkcocoa = _milkcocoa;
+		if(window.onMilkcocoaInitialized) window.onMilkcocoaInitialized();
 	});
 
 	var milkcocoaDatasource = function (settings, updateCallback) {
@@ -62,8 +67,16 @@
 
 		ds.on(settings.api, onData);
 
+		if(settings.api == 'push') {
+			ds.stream().size(1).next(function(err, data) {
+				if(err) {
+					throw err;
+				}
+				data.forEach(onData);
+			});
+		}
+
 		function onData(e) {
-			console.log(e);
 			updateCallback(e);
 		}
 
@@ -72,9 +85,11 @@
 		}
 
 		this.onDispose = function () {
+
 		}
 
 		this.onSettingsChanged = function (newSettings) {
+			
 		}
 	};
 

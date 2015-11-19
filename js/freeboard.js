@@ -562,9 +562,23 @@ function FreeboardModel(datasourcePlugins, widgetPlugins, freeboardUI)
 		a.click();
 	}
 
+	this.saveLocal = function()
+	{
+		var str = JSON.stringify(self.serialize());
+		localStorage.setItem('freeboard-db', str);
+	}
+
+	this.loadLocal = function()
+	{
+		var str = localStorage.getItem('freeboard-db');
+		if(str)
+			self.loadDashboard(JSON.parse(str));
+	}
+
 	this.addDatasource = function(datasource)
 	{
 		self.datasources.push(datasource);
+		self.saveLocal();
 	}
 
 	this.deleteDatasource = function(datasource)
@@ -572,12 +586,14 @@ function FreeboardModel(datasourcePlugins, widgetPlugins, freeboardUI)
 		delete self.datasourceData[datasource.name()];
 		datasource.dispose();
 		self.datasources.remove(datasource);
+		self.saveLocal();
 	}
 
 	this.createPane = function()
 	{
 		var newPane = new PaneModel(self, widgetPlugins);
 		self.addPane(newPane);
+		self.saveLocal();
 	}
 
 	this.addGridColumnLeft = function()
@@ -2273,6 +2289,7 @@ function WidgetModel(theFreeboardModel, widgetPlugins) {
 					console.log(e.toString());
 				}
 			}
+			theFreeboardModel.saveLocal();
 		}
 	}
 
@@ -2879,6 +2896,10 @@ var freeboard = (function()
 		loadDashboard       : function(configuration, callback)
 		{
 			theFreeboardModel.loadDashboard(configuration, callback);
+		},
+		loadLocal       : function(configuration, callback)
+		{
+			theFreeboardModel.loadLocal();
 		},
 		serialize           : function()
 		{
